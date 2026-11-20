@@ -3,7 +3,6 @@
   --panel: #181a33;
   --accent: #ff4d6d;
   --text: #e8e8f0;
-  --stage-h: 70vh;
 }
 
 * {
@@ -17,6 +16,11 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+.icon-library {
+  position: absolute;
+  pointer-events: none;
+}
+
 .app {
   max-width: 480px;
   margin: 0 auto;
@@ -25,26 +29,28 @@ body {
 
 .stage {
   position: relative;
-  height: var(--stage-h);
-  background: linear-gradient(180deg, #1b1d3d, #0b0c1a);
-  border-radius: 12px;
+  height: 70vh;
+  height: 70dvh;
   overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #1b1d3d, #0b0c1a);
 }
 
 .stage-label {
   position: absolute;
   top: 12px;
   left: 12px;
+  margin: 0;
+  color: #b5b7cb;
   font-size: 12px;
   letter-spacing: 0.1em;
-  opacity: 0.6;
+  text-transform: uppercase;
 }
 
-/* Defines where reactions originate: bottom-right strip of the stage */
 .spawn-area {
   position: absolute;
-  bottom: 0;
   right: 0;
+  bottom: 0;
   width: 40%;
   height: 40px;
   pointer-events: none;
@@ -53,12 +59,12 @@ body {
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
   align-items: center;
+  gap: 12px;
   margin-top: 12px;
   padding: 12px;
-  background: var(--panel);
   border-radius: 12px;
+  background: var(--panel);
 }
 
 .field {
@@ -70,73 +76,115 @@ body {
 
 button,
 select {
-  padding: 8px 14px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #454970;
   border-radius: 8px;
-  border: 1px solid #333660;
   background: #23264a;
-  color: var(--text);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
   cursor: pointer;
 }
+
 button.primary {
-  background: var(--accent);
   border-color: var(--accent);
-  font-weight: 600;
-}
-input[type="range"]:disabled {
-  opacity: 0.4;
+  background: var(--accent);
+  color: #171020;
+  font-weight: 700;
 }
 
-/* ---------- Shared reaction base ---------- */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #ffd93d;
+  outline-offset: 3px;
+}
+
+#speed {
+  width: clamp(72px, 24vw, 120px);
+  accent-color: var(--accent);
+}
+
+#speed:disabled {
+  opacity: 0.45;
+}
+
+#speed-out,
+#count {
+  font-variant-numeric: tabular-nums;
+}
+
+#speed-out {
+  min-width: 4ch;
+}
+
+.status {
+  flex-basis: 100%;
+  margin: 0;
+  color: #ffd93d;
+  font-size: 14px;
+}
+
 .reaction {
   position: absolute;
   bottom: 0;
+  display: grid;
+  place-items: center;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  font-size: var(--icon-size);
+  color: var(--icon-color);
   pointer-events: none;
   user-select: none;
 }
 
-/* ---------- Phase 1: layout-property keyframes (intentionally slow) ---------- */
+.reaction svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+/* Phase 1 deliberately changes layout properties for the profiling exercise. */
 .reaction-css {
-  animation: float-layout 3s linear forwards;
-  font-size: 24px;
-  line-height: 1;
+  animation: float-layout var(--lifespan) linear forwards;
 }
 
 @keyframes float-layout {
   0% {
     bottom: 0;
-    margin-left: 0;
-    font-size: 24px;
+    margin-left: calc(-1 * var(--sway));
+    font-size: var(--icon-size);
     opacity: 1;
   }
-  25% {
-    margin-left: var(--sway);
-  }
-  50% {
-    margin-left: calc(var(--sway) * -1);
-  }
+
+  25%,
   75% {
     margin-left: var(--sway);
   }
-  70% {
+
+  50% {
+    margin-left: calc(-1 * var(--sway));
+  }
+
+  66.6667% {
     opacity: 1;
   }
+
+  93.3333% {
+    opacity: 0;
+  }
+
   100% {
-    bottom: 90%;
-    margin-left: calc(var(--sway) * -1);
-    font-size: 44px;
+    bottom: var(--travel);
+    margin-left: calc(-1 * var(--sway));
+    font-size: calc(var(--icon-size) * var(--end-scale));
     opacity: 0;
   }
 }
 
-/* ---------- Phase 2: GSAP-driven, compositor-friendly ---------- */
+/* Only live GSAP reactions get the hint, and removal releases it. */
 .reaction-gsap {
-  width: 36px;
-  height: 36px;
-  will-change: transform, opacity; /* promote to its own compositor layer */
-}
-
-.reaction-gsap svg {
-  width: 100%;
-  height: 100%;
-  fill: var(--icon-color, currentColor); /* runtime tinting hook */
+  will-change: transform, opacity;
 }

@@ -2,63 +2,94 @@
 
 ## 1. Setup & Running Instructions
 
-No build step. Either:
+Open `index.html` in Google Chrome, or run `python3 -m http.server 8000`
+from the project folder and open <http://localhost:8000>.
 
-- Open `index.html` directly in Chrome, or
-- Serve the folder: `npx serve .` (or `python -m http.server`) and open the printed URL.
+GSAP loads from cdnjs. If the CDN is unavailable, the app opens in CSS mode
+and displays a message.
 
-GSAP loads from cdnjs, so an internet connection is needed on first load.
+- **Send Reaction** spawns one icon.
+- - **Burst ×50** sends 50 reactions in quick succession with uneven gaps
+    between launches. At 1.0×, their flights overlap for the profiling test.
+    Click **Send Reaction** during a burst to test more than 50 concurrent
+    reactions.
+    a burst to test more than 50 concurrent reactions.
+- **Mode** controls how new reactions animate. Reactions already in flight
+  finish in the mode they started in.
+- **Speed** changes the playback rate of active and future GSAP reactions.
+  A flight lasts three seconds at 1.0×.
 
-Use the **Mode** dropdown to switch between Phase 1 (CSS keyframes) and Phase 2 (GSAP).
-Use **Burst ×50** for the high-concurrency test. The **Speed** slider works in GSAP mode only.
+### Profiling setup
 
-DevTools setup used: Rendering tab → Paint Flashing + Frame Rendering Stats;
-Performance panel → CPU 6x slowdown.
+In Chrome DevTools, open **Rendering** and enable **Paint flashing** and
+**Frame rendering stats**. In the **Performance** panel, set CPU throttling
+to **6× slowdown**.
 
-## 2. Phase 1: CSS Keyframes Analysis
+For each phase, wait until **Active** reads `0`, start recording, click
+**Burst ×50** once, and record until the count returns to `0`. Use the same
+viewport size for both captures and keep GSAP at 1.0× for the comparison.
+In a separate GSAP run, drag the slider to 0.1× during the ascent and confirm
+that the reactions slow down from their current positions.
 
-- **Paint Flashing Screenshot:** ![paint flashing p1](screenshots/p1-paint-flashing.png)
-- **Performance Profile Screenshot:** ![profile p1](screenshots/p1-performance.png)
-- **Observations:**
-  - **Green regions:** [Fill in from your own capture.] Expected: a green rectangle
-    around every emoji on every frame, plus the regions they vacate, because
-    `bottom`, `margin-left` and `font-size` change geometry and the pixels must be
-    re-rasterised. With 50+ icons the green covers most of the right side of the stage.
-  - **Main thread:** [Fill in from your own capture.] Expected: every frame shows
-    Recalculate Style → Layout → Paint → Composite in the flame chart. Layout cost
-    scales with the number of animated nodes, and at 6x throttling long tasks appear
-    and the FPS meter drops below 60.
+## 2. Phase 1 — CSS Keyframes Analysis
 
-## 3. Phase 2: GSAP & Composited Rendering Analysis
+- **Paint flashing screenshot**
+  <!-- Add the Phase 1 paint flashing screenshot here. -->
+- **Performance profile screenshot**
+  <!-- Add the Phase 1 Performance panel screenshot here. -->
 
-- **Performance Profile Screenshot:** ![profile p2](screenshots/p2-performance.png)
-- **Observations:**
-  - **Flame chart / frame rate vs Phase 1:** [Fill in.] Expected: Layout and Paint
-    disappear from the per-frame work; what remains is GSAP's JS tick (writing
-    transform/opacity) and Composite. FPS stays much closer to 60 under throttling.
-  - **Paint invalidation:** [Fill in.] Expected: little to no green after the initial
-    layer creation. `x`, `y`, `scale` and `opacity` are applied on the compositor,
-    so each icon moves as a GPU-textured layer without re-rasterising.
+**Observations**
+
+- Paint flashing regions and when they appeared: [Fill in after recording.]
+- Main-thread activity during the burst: [Fill in after recording. Look for
+  Recalculate Style, Layout, and Paint during the ascent.]
+- Frame rendering stats: [Record what you observed.]
+
+Phase 1 animates `bottom`, `margin-left`, and `font-size`. These properties
+affect layout, so the browser can spend time updating geometry and painting
+as reactions move. The capture shows how much of that work happened in
+this test.
+
+## 3. Phase 2 — GSAP & Composited Rendering Analysis
+
+- **Performance profile screenshot**
+  <!-- Add the Phase 2 Performance panel screenshot here. -->
+
+**Observations**
+
+- Flame chart changes compared with Phase 1: [Fill in after recording.]
+- Frame rendering stats: [Record what you observed under the same load.]
+- Paint flashing during spawn and ascent: [Fill in after recording.]
+- Mid-air speed test at 0.1×: [Record what happened.]
+
+Phase 2 uses GSAP to animate `x`, `y`, `scale`, and `opacity`. GSAP still
+runs JavaScript to update these values. Chrome can often composite those
+changes without recalculating each icon's layout or repainting it every
+frame. Creating the icons can still incur style, layout, and paint work.
 
 ## 4. Architectural Reflection
 
-- **Runtime Control & Developer Experience:**
-  CSS keyframes are declarative but static. Once the animation starts, changing
-  speed or path means rewriting the rule, swapping the class, or going through the
-  Web Animations API. Randomised paths need custom properties and still can't change
-  mid-flight. A GSAP timeline is an object: `timeScale()` retimes it live, and
-  `pause()`, `reverse()`, `seek()` and `progress()` are available. Per-instance
-  randomisation (sway amplitude, travel distance) is just a variable, and a single
-  slider can retime 50+ in-flight animations with no layout work. The cost is a
-  JS dependency and main-thread ticking (the animated properties are still
-  compositor-friendly).
+### Runtime control and developer experience
 
-- **Pipeline Considerations:**
-  Inline SVG (vector) assets expose fill, stroke and gradients to CSS variables or
-  JS, so tinting or re-theming at runtime is one property change, with no
-  re-export. A single vector asset is resolution independent and light on bytes.
-  Pre-rendered raster sequences would need a variant per theme, per color and per
-  device pixel ratio. That multiplies asset count and download size, and cannot
-  adapt to arbitrary user-chosen colors. Raster sprite sheets also cost memory
-  (every frame is decoded to a texture) and blur when scaled past their native size.
-  Rasters only win for very complex artwork that is too expensive to draw as vectors.
+CSS keyframes describe the flight in one rule. The app passes each
+reaction's sway and travel distance through custom properties at spawn.
+The CSS animation plays at its declared duration. Live playback control
+could be added through the Web Animations API.
+
+GSAP gives each reaction a timeline. The slider calls `timeScale()` on
+every active timeline, so each flight continues from its current position
+at the new speed. Path changes are also easier to express in JavaScript.
+For example, a flight could start a new horizontal tween from its current
+position while its upward tween continues. The trade-offs are an external
+dependency and JavaScript work on every animation tick.
+
+### Vector assets and runtime theming
+
+Both phases reference shared SVG symbols. Each reaction sets its color
+through `--icon-color`, and the shape inherits it through `currentColor`.
+A theme can change that color at runtime while reusing the same paths.
+SVG shapes can also render at different icon sizes and screen densities.
+
+Pre-rendered raster sequences can make sense for detailed artwork with
+complex effects. For this app, they would add decoded image memory and
+could require extra files for different resolutions or color treatments.
