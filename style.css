@@ -1,0 +1,142 @@
+:root {
+  --bg: #0f1020;
+  --panel: #181a33;
+  --accent: #ff4d6d;
+  --text: #e8e8f0;
+  --stage-h: 70vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.stage {
+  position: relative;
+  height: var(--stage-h);
+  background: linear-gradient(180deg, #1b1d3d, #0b0c1a);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.stage-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+}
+
+/* Defines where reactions originate: bottom-right strip of the stage */
+.spawn-area {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 40%;
+  height: 40px;
+  pointer-events: none;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--panel);
+  border-radius: 12px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+button,
+select {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #333660;
+  background: #23264a;
+  color: var(--text);
+  cursor: pointer;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+input[type="range"]:disabled {
+  opacity: 0.4;
+}
+
+/* ---------- Shared reaction base ---------- */
+.reaction {
+  position: absolute;
+  bottom: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---------- Phase 1: layout-property keyframes (intentionally slow) ---------- */
+.reaction-css {
+  animation: float-layout 3s linear forwards;
+  font-size: 24px;
+  line-height: 1;
+}
+
+@keyframes float-layout {
+  0% {
+    bottom: 0;
+    margin-left: 0;
+    font-size: 24px;
+    opacity: 1;
+  }
+  25% {
+    margin-left: var(--sway);
+  }
+  50% {
+    margin-left: calc(var(--sway) * -1);
+  }
+  75% {
+    margin-left: var(--sway);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    bottom: 90%;
+    margin-left: calc(var(--sway) * -1);
+    font-size: 44px;
+    opacity: 0;
+  }
+}
+
+/* ---------- Phase 2: GSAP-driven, compositor-friendly ---------- */
+.reaction-gsap {
+  width: 36px;
+  height: 36px;
+  will-change: transform, opacity; /* promote to its own compositor layer */
+}
+
+.reaction-gsap svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--icon-color, currentColor); /* runtime tinting hook */
+}
